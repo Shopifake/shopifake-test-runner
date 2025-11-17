@@ -38,8 +38,7 @@ COPY --from=builder /opt/venv /opt/venv
 # Configure environment
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONOPTIMIZE=1
+    PYTHONDONTWRITEBYTECODE=1
 
 # Install curl for debugging and health checks
 RUN apt-get update && \
@@ -52,8 +51,9 @@ WORKDIR /app
 # Copy application code
 COPY --chown=testrunner:testrunner ./src ./src
 
-# Create reports directory
-RUN mkdir -p reports && chown testrunner:testrunner reports
+# Create reports and pytest cache directories
+RUN mkdir -p reports .pytest_cache && \
+    chown -R testrunner:testrunner reports .pytest_cache
 
 # Switch to non-root user
 USER testrunner
