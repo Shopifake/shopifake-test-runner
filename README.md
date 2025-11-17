@@ -1,125 +1,176 @@
-# FastAPI Template
+# Shopifake Test Runner
 
-A production-ready FastAPI template with complete CI/CD pipeline, testing, and deployment configurations.
+Python-based test orchestrator for Shopifake microservices. Executes system, load, and chaos tests in different environments.
 
-## 🚀 Features
+## Features
 
-- FastAPI 0.116.2 with Python 3.12
-- Async SQLAlchemy (SQLite for dev/test, PostgreSQL for production)
-- Alembic migrations
-- Pytest with async fixtures
-- Ruff (linting) + Black (formatting)
-- GitHub Actions CI/CD with Docker
-- Multi-stage Dockerfile with Gunicorn + Uvicorn workers
+- **System Tests**: Health checks and E2E tests for all microservices
+- **Load Tests**: Performance testing with Locust (staging only)
+- **Chaos Tests**: Chaos engineering tests (staging only)
+- **Multi-mode**: Works in PR (local docker-compose) and staging (K8s) environments
+- **GitHub Integration**: Automatic PR creation and email notifications
 
-## 🏃 Quick Start
+## Architecture
 
-### Development
+```
+shopifake-test-runner/
+├── src/
+│   ├── cli.py              # CLI entry point (Click)
+│   ├── config.py           # Configuration management (Pydantic)
+│   ├── orchestrator.py     # Test orchestration logic
+│   └── tests/
+│       ├── system/         # System/health tests (Pytest)
+│       ├── load/           # Load tests (Locust)
+│       └── chaos/          # Chaos tests
+├── Dockerfile              # Multi-stage production image
+├── requirements.txt        # Python dependencies
+└── pyproject.toml          # Project configuration
+```
+
+## Usage
+
+### CLI Commands
 
 ```bash
-# Clone and setup
-git clone <repository-url>
-cd fast-api-template
-cp .env.example.dev .env
+# Run system tests in PR mode (local docker-compose)
+python -m src.cli run --mode pr --suite system
 
+# Run all tests in staging mode (deployed environment)
+python -m src.cli run --mode staging --suite all
+
+# Run with custom base URL
+python -m src.cli run --mode pr --suite system --base-url http://gateway:8080
+
+# Display version
+python -m src.cli version
+```
+
+### Docker
+
+```bash
+# Build image
+docker build -t shopifake-test-runner:latest .
+
+# Run in PR mode
+docker run --rm \
+  --network compose_default \
+  -e MODE=pr \
+  -e BASE_URL=http://gateway:8080 \
+  shopifake-test-runner:latest \
+  run --mode pr --suite system
+
+# Run in staging mode
+docker run --rm \
+  -e MODE=staging \
+  -e BASE_URL=https://staging-api.shopifake.com \
+  -e GITHUB_TOKEN=$GITHUB_TOKEN \
+  shopifake-test-runner:latest \
+  run --mode staging --suite all
+```
+
+### Kubernetes Job
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: staging-tests
+  namespace: shopifake
+spec:
+  template:
+    spec:
+      containers:
+      - name: test-runner
+        image: ghcr.io/shopifake/shopifake-test-runner:latest
+        command: ["python", "-m", "src.cli", "run"]
+        args: ["--mode", "staging", "--suite", "all"]
+        env:
+        - name: BASE_URL
+          value: "https://staging-api.shopifake.com"
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-token
+              key: token
+      restartPolicy: Never
+```
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MODE` | Execution mode: `pr` or `staging` | - |
+| `BASE_URL` | API Gateway base URL | `http://localhost:8080` (pr), `https://staging-api.shopifake.com` (staging) |
+| `TIMEOUT` | Request timeout in seconds | `60` (pr), `300` (staging) |
+| `GITHUB_TOKEN` | GitHub API token for PR creation | - |
+
+### Modes
+
+#### PR Mode
+- Tests against local docker-compose stack
+- System tests only
+- Fast execution (~1-2 minutes)
+- Exit code indicates success/failure
+
+#### Staging Mode
+- Tests against deployed staging environment
+- All test suites (system + load + chaos)
+- Longer execution (~10-15 minutes)
+- Creates promotion PR on success
+- Sends email notification on failure
+
+## Development
+
+### Setup
+
+```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Run migrations
-alembic upgrade head
+# Run tests locally
+pytest src/tests/system -v
 
-# Start server
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+# Format code
+black src/
+ruff check src/
 ```
 
-API available at:
-- http://localhost:8000
-- http://localhost:8000/docs (Swagger UI)
-- http://localhost:8000/redoc (ReDoc)
-
-## 🐳 Docker
+### Testing
 
 ```bash
-# Build
-docker build -t fastapi-template .
-
-# Run (see .env.example.prod for required variables)
-docker run -d -p 8000:8000 \
-  -e ENVIRONMENT=production \
-  -e POSTGRES_USER=your_user \
-  -e POSTGRES_PASSWORD=your_password \
-  -e POSTGRES_HOST=your_host \
-  -e POSTGRES_DB=your_database \
-  fastapi-template
+# Run system tests against local stack
+docker-compose -f compose/system-tests.compose.yml up -d
+python -m src.cli run --mode pr --suite system
+docker-compose -f compose/system-tests.compose.yml down
 ```
 
-> **Note**: `.env.example.prod` is a reference template showing which environment variables need to be passed to Docker at runtime. It's not used directly by the application.
+## CI/CD Integration
 
-## 📡 API Endpoints
+### PR Workflow (dev → staging)
 
-- `GET /` - Hello World
-- `GET /health` - Health check with DB status
-- `GET /docs` - Interactive API docs (Swagger)
-- `GET /redoc` - Alternative API docs
-
-## 🗄️ Database
-
-**Development**: SQLite (default, no config needed)
-
-**Production**: Set environment variables:
-```bash
-ENVIRONMENT=production
-POSTGRES_USER=your_user
-POSTGRES_PASSWORD=your_password
-POSTGRES_HOST=your_host
-POSTGRES_PORT=5432
-POSTGRES_DB=your_database
+```yaml
+- name: Run system tests
+  run: |
+    docker run --rm \
+      --network compose_default \
+      -e MODE=pr \
+      -e BASE_URL=http://localhost:8080 \
+      ghcr.io/shopifake/shopifake-test-runner:latest \
+      run --mode pr --suite system
 ```
 
-## 🧪 Development Commands
+### Staging Workflow (post-merge)
 
-```bash
-# Tests
-pytest
-pytest --cov=src --cov-report=html
-
-# Linting
-ruff check src/ tests/
-ruff check --fix src/ tests/
-
-# Formatting
-black src/ tests/
-
-# Migrations
-alembic revision --autogenerate -m "description"
-alembic upgrade head
-alembic downgrade -1
+```yaml
+- name: Deploy test job to K8s
+  run: |
+    kubectl create job staging-tests-$(date +%s) \
+      --image=ghcr.io/shopifake/shopifake-test-runner:latest \
+      -- run --mode staging --suite all
 ```
 
-## 🏗️ Project Structure
+## License
 
-```
-fast-api-template/
-├── alembic/              # Database migrations
-├── .github/workflows/    # CI/CD pipelines
-├── src/                  # Application code
-│   ├── main.py          # FastAPI app
-│   ├── config.py        # Settings
-│   └── database.py      # DB setup
-├── tests/               # Test suite
-├── .env.example.dev     # Dev env template (copy to .env)
-├── .env.example.prod    # Reference: Docker env vars for production
-├── Dockerfile           # Production image
-└── requirements.txt     # Dependencies
-```
-
-## 🔄 CI/CD
-
-GitHub Actions pipeline includes:
-- Lint (Ruff)
-- Test (pytest)
-- Build verification
-- Coverage reporting
-- Docker build & push (on `main` branch)
-
-**Codecov (optional)**: To enable Codecov upload, add the `CODECOV_TOKEN` secret in GitHub settings (Settings → Secrets → Actions). Otherwise, coverage reports are still available as GitHub Actions artifacts. 
+MIT

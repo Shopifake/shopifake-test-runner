@@ -1,17 +1,17 @@
 [project]
-name = "fastapi-template"
+name = "shopifake-test-runner"
 version = "1.0.0"
-description = "A minimal FastAPI template"
+description = "Test orchestrator for Shopifake microservices - System, Load, and Chaos tests"
 requires-python = ">=3.12"
 dependencies = []
 
 [tool.black]
-line-length = 88
+line-length = 100
 target-version = ['py312']
 include = '\.pyi?$'
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py312"
 select = [
     "E",   # pycodestyle errors
@@ -28,10 +28,17 @@ ignore = []
 known-first-party = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["src/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "system: System/health check tests",
+    "load: Load testing tests",
+    "chaos: Chaos engineering tests",
+]

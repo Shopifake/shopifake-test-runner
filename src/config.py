@@ -1,57 +1,72 @@
 """
-Configuration settings for the application.
+Configuration management for test runner.
 """
 
 import os
+from typing import Literal
 
-from dotenv import load_dotenv
-
-load_dotenv()
+from pydantic import BaseModel, Field
 
 
-class Settings:
-    """
-    Application settings loaded from environment variables.
-    """
+class TestConfig(BaseModel):
+    """Test configuration based on execution mode."""
 
-    # Database settings
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", "sqlite+aiosqlite:///./app.db"  # Default: SQLite for dev/test
+    mode: Literal["pr", "staging"]
+    base_url: str
+    timeout: int = Field(default=60, description="Default timeout in seconds")
+    verbose: bool = Field(default=False, description="Enable verbose logging")
+    
+    # GitHub integration
+    github_token: str | None = Field(default=None, description="GitHub token for API access")
+    github_repo: str = Field(default="Shopifake/shopifake-back", description="GitHub repository")
+    
+    # Post-test actions
+    create_pr: bool = Field(default=False, description="Create promotion PR on success")
+    send_email: bool = Field(default=False, description="Send email notification on failure")
+    
+    # Services to test
+    services: list[str] = Field(
+        default_factory=lambda: [
+            "access",
+            "audit",
+            "catalog",
+            "customers",
+            "inventory",
+            "orders",
+            "pricing",
+            "sales-dashboard",
+            "sites",
+            "chatbot",
+            "recommender",
+            "auth-b2c",
+            "auth-b2e",
+        ]
     )
 
-    # PostgreSQL settings (for production)
-    POSTGRES_USER: str | None = os.getenv("POSTGRES_USER")
-    POSTGRES_PASSWORD: str | None = os.getenv("POSTGRES_PASSWORD")
-    POSTGRES_HOST: str | None = os.getenv("POSTGRES_HOST")
-    POSTGRES_PORT: str | None = os.getenv("POSTGRES_PORT", "5432")
-    POSTGRES_DB: str | None = os.getenv("POSTGRES_DB")
-
-    # Environment
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
-
-    @property
-    def is_production(self) -> bool:
-        """
-        Check if running in production environment.
-        """
-        return self.ENVIRONMENT.lower() == "production"
-
-    @property
-    def database_url(self) -> str:
-        """
-        Get the appropriate database URL based on environment.
-
-        In production, constructs PostgreSQL URL from individual vars.
-        In dev/test, uses SQLite.
-        """
-        if self.is_production and self.POSTGRES_USER:
-            # Production: use PostgreSQL
-            return (
-                f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    @classmethod
+    def from_mode(cls, mode: str) -> "TestConfig":
+        """Create configuration based on execution mode."""
+        if mode == "pr":
+            return cls(
+                mode="pr",
+                base_url=os.getenv("BASE_URL", "http://localhost:8080"),
+                timeout=int(os.getenv("TIMEOUT", "60")),
+                create_pr=False,
+                send_email=False,
             )
-        # Development/Test: use SQLite
-        return self.DATABASE_URL
+        elif mode == "staging":
+            return cls(
+                mode="staging",
+                base_url=os.getenv("BASE_URL", "https://staging-api.shopifake.com"),
+                timeout=int(os.getenv("TIMEOUT", "300")),
+                github_token=os.getenv("GITHUB_TOKEN"),
+                create_pr=True,
+                send_email=True,
+            )
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
 
-
-settings = Settings()
+    class Config:
+        """Pydantic configuration."""
+        env_file = ".env"
+        env_file_encoding = "utf-8"
