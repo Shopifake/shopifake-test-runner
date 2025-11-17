@@ -19,10 +19,12 @@ class TestConfig(BaseModel):
     # GitHub integration
     github_token: str | None = Field(default=None, description="GitHub token for API access")
     github_repo: str = Field(default="Shopifake/shopifake-back", description="GitHub repository")
+    github_commit_sha: str | None = Field(default=None, description="Git commit SHA for result posting")
     
     # Post-test actions
     create_pr: bool = Field(default=False, description="Create promotion PR on success")
     send_email: bool = Field(default=False, description="Send email notification on failure")
+    post_results_to_github: bool = Field(default=True, description="Post test results to GitHub commit")
     
     # Services to test
     services: list[str] = Field(
@@ -60,8 +62,10 @@ class TestConfig(BaseModel):
                 base_url=os.getenv("BASE_URL", "https://staging-api.shopifake.com"),
                 timeout=int(os.getenv("TIMEOUT", "300")),
                 github_token=os.getenv("GITHUB_TOKEN"),
+                github_commit_sha=os.getenv("GITHUB_SHA"),
                 create_pr=True,
                 send_email=True,
+                post_results_to_github=os.getenv("POST_RESULTS_TO_GITHUB", "true").lower() == "true",
             )
         else:
             raise ValueError(f"Unknown mode: {mode}")

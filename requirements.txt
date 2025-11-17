@@ -24,8 +24,11 @@ jinja2>=3.1.0
 # YAML parsing
 pyyaml>=6.0
 
-# Load testing (optional)
+# Load testing
 locust>=2.20.0
+
+# Chaos engineering (staging only)
+kubernetes>=28.1.0
 
 # Code quality
 ruff>=0.8.0

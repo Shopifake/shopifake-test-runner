@@ -25,7 +25,7 @@ class TestReport:
         """Generate markdown summary of test results."""
         status_emoji = "✅" if self.success else "❌"
         
-        md = f"# {status_emoji} Test Results\n\n"
+        md = f"# {status_emoji} Staging Test Results\n\n"
         md += f"**Duration:** {self.duration:.2f}s\n\n"
         md += "## Test Suites\n\n"
         
@@ -37,6 +37,18 @@ class TestReport:
             md += f"- Chaos Tests: {'✅ PASSED' if self.chaos_passed else '❌ FAILED'}\n"
         
         return md
+    
+    def to_commit_status_description(self) -> str:
+        """Generate short description for GitHub commit status."""
+        parts = []
+        if self.system_passed is not None:
+            parts.append(f"System: {'✅' if self.system_passed else '❌'}")
+        if self.load_passed is not None:
+            parts.append(f"Load: {'✅' if self.load_passed else '❌'}")
+        if self.chaos_passed is not None:
+            parts.append(f"Chaos: {'✅' if self.chaos_passed else '❌'}")
+        
+        return " | ".join(parts) if parts else "No tests run"
 
 
 class TestOrchestrator:
@@ -200,8 +212,48 @@ class TestOrchestrator:
 
     def _run_chaos_tests(self) -> bool:
         """Run chaos tests (staging only)."""
-        print("TODO: Implement chaos tests")
-        return True
+        import os
+        import sys
+        from pathlib import Path
+        
+        # Verify Kubernetes config is available
+        kubeconfig = os.getenv("KUBECONFIG")
+        if not kubeconfig:
+            print("⚠️  KUBECONFIG not set, checking for in-cluster config...")
+            # In-cluster config will be tried automatically by kubernetes client
+        
+        # Verify namespace is set
+        namespace = os.getenv("K8S_NAMESPACE", "staging")
+        print(f"Using Kubernetes namespace: {namespace}")
+        
+        # Ensure reports directory exists
+        reports_dir = Path("reports")
+        reports_dir.mkdir(exist_ok=True)
+        
+        args = [
+            "src/tests/chaos",
+            "-m", "chaos",  # Run tests with @pytest.mark.chaos
+            f"--base-url={self.config.base_url}",
+            "--html=reports/chaos.html",
+            "--self-contained-html",
+            "-v" if self.config.verbose else "",
+            "-s",  # Don't capture output
+        ]
+        args = [arg for arg in args if arg]  # Remove empty strings
+        
+        print(f"Running pytest chaos tests with args: {args}")
+        print(f"Base URL: {self.config.base_url}")
+        print(f"Namespace: {namespace}")
+        
+        exit_code = pytest.main(args)
+        
+        if exit_code != 0:
+            print(f"❌ Chaos tests failed with code {exit_code}")
+            return False
+        else:
+            print(f"✅ Chaos tests passed")
+            print(f"📊 Report saved to: {reports_dir / 'chaos.html'}")
+            return True
 
     def _handle_pr_results(self, report: TestReport):
         """Handle PR test results (simple output)."""
@@ -213,48 +265,162 @@ class TestOrchestrator:
         print("=" * 60)
 
     def _handle_staging_results(self, report: TestReport):
-        """Handle staging test results (PR creation + email)."""
+        """Handle staging test results (GitHub notification + PR creation or email)."""
         print("=" * 60)
         print(f"Staging Test Results")
         print("=" * 60)
         print(report.to_markdown())
 
-        if report.success and self.config.create_pr:
-            print("\n✅ All tests passed - Creating promotion PR...")
-            self._create_promotion_pr(report)
-        elif not report.success and self.config.send_email:
-            print("\n❌ Tests failed - Sending notification...")
-            self._send_failure_email(report)
+        # Always post results to GitHub (success or failure)
+        if self.config.post_results_to_github:
+            print("\n📤 Posting test results to GitHub...")
+            self._post_results_to_github(report)
+
+        # Handle success: create promotion PR
+        if report.success:
+            if self.config.create_pr:
+                print("\n🎉 All tests passed - Creating promotion PR...")
+                self._create_promotion_pr(report)
+            else:
+                print("\n✅ All tests passed (PR creation disabled)")
+        
+        # Handle failure: send email notification
+        else:
+            print("\n❌ Tests failed")
+            if self.config.send_email:
+                print("📧 Sending failure notification...")
+                self._send_failure_email(report)
+            else:
+                print("⚠️  Email notifications disabled")
 
         print("=" * 60)
 
     def _create_promotion_pr(self, report: TestReport):
-        """Create promotion PR from staging to main."""
+        """Create promotion PR from staging to main with test results."""
         if not self.config.github_token:
             print("⚠️  GITHUB_TOKEN not set, skipping PR creation")
             return
 
         try:
             from github import Github
+            from datetime import datetime
 
             g = Github(self.config.github_token)
             repo = g.get_repo(self.config.github_repo)
 
+            # Prepare PR body with test results
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+            
+            pr_body = f"""## 🎉 Staging Tests Passed - Ready for Production
+
+{report.to_markdown()}
+
+---
+
+**Test Environment:** Staging  
+**Tested Commit:** `{self.config.github_commit_sha[:7] if self.config.github_commit_sha else 'N/A'}`  
+**Test Duration:** {report.duration:.2f}s  
+**Timestamp:** {timestamp}
+
+<details>
+<summary>📊 Detailed Test Reports</summary>
+
+All test reports are available in CI artifacts:
+- System Tests: ✅ All microservices healthy
+- Load Tests: ✅ Performance requirements met
+- Chaos Tests: ✅ System resilient to failures
+
+</details>
+
+### Next Steps
+
+1. Review changes in this PR
+2. Approve and merge to deploy to production
+3. Monitor production metrics after deployment
+
+---
+*Automated promotion generated by test runner*
+"""
+
             # Create PR
             pr = repo.create_pull(
-                title="chore: promote staging to main",
-                body=report.to_markdown(),
+                title="🚀 chore: promote staging to main",
+                body=pr_body,
                 head="staging",
                 base="main",
             )
 
             print(f"✅ Created promotion PR: {pr.html_url}")
-
-            # Add comment with test summary
-            pr.create_issue_comment(report.to_markdown())
+            print(f"   Title: chore: promote staging to main")
+            print(f"   All tests passed and results included in PR description")
 
         except Exception as e:
             print(f"❌ Failed to create PR: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _post_results_to_github(self, report: TestReport):
+        """
+        Post test results to GitHub via commit status and commit comment.
+        
+        Always posts results (success or failure) so they're visible on GitHub.
+        """
+        if not self.config.github_token:
+            print("⚠️  GITHUB_TOKEN not set, skipping GitHub result posting")
+            return
+        
+        if not self.config.github_commit_sha:
+            print("⚠️  GITHUB_SHA not set, cannot post results to specific commit")
+            return
+        
+        try:
+            from github import Github
+            from datetime import datetime
+            
+            g = Github(self.config.github_token)
+            repo = g.get_repo(self.config.github_repo)
+            commit = repo.get_commit(self.config.github_commit_sha)
+            
+            # 1. Create commit status (shows up in PR checks)
+            state = "success" if report.success else "failure"
+            commit.create_status(
+                state=state,
+                target_url=None,  # TODO: Could link to test report artifacts
+                description=report.to_commit_status_description(),
+                context="staging-tests/all"
+            )
+            print(f"✅ Posted commit status: {state}")
+            
+            # 2. Create commit comment with detailed results
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+            
+            comment_body = f"""{report.to_markdown()}
+
+---
+**Commit:** `{self.config.github_commit_sha[:7]}`  
+**Environment:** Staging  
+**Timestamp:** {timestamp}  
+
+<details>
+<summary>📊 Test Reports</summary>
+
+Generated reports (check CI artifacts):
+- `reports/system.html` - System test results
+- `reports/load.html` - Load test results  
+- `reports/chaos.html` - Chaos test results
+
+</details>
+"""
+            
+            commit.create_comment(comment_body)
+            print(f"✅ Posted commit comment with detailed results")
+            
+            print(f"✅ Successfully posted results to GitHub for commit {self.config.github_commit_sha[:7]}")
+            
+        except Exception as e:
+            print(f"❌ Failed to post results to GitHub: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _send_failure_email(self, report: TestReport):
         """Send email notification on test failure."""
