@@ -4,6 +4,8 @@ Pytest configuration and fixtures for system tests.
 
 import pytest
 
+from src.tests.helpers.api_client import APIClient
+
 
 def pytest_addoption(parser):
     """Add custom command-line options for pytest."""
@@ -12,6 +14,13 @@ def pytest_addoption(parser):
         action="store",
         default="http://localhost:8080",
         help="Base URL for the API Gateway",
+    )
+    parser.addoption(
+        "--timeout",
+        action="store",
+        type=int,
+        default=60,
+        help="Default timeout for HTTP requests in seconds",
     )
 
 
@@ -22,21 +31,13 @@ def base_url(request):
 
 
 @pytest.fixture(scope="session")
-def services():
-    """List of all services to test."""
-    return [
-        "access",
-        "audit",
-        "catalog",
-        "customers",
-        "inventory",
-        "orders",
-        "pricing",
-        "sales-dashboard",
-        "sites",
-        "chatbot",
-        "recommender",
-        "auth-b2c",
-        "auth-b2e",
-    ]
+def timeout(request):
+    """Provide default timeout for HTTP requests."""
+    return request.config.getoption("--timeout")
+
+
+@pytest.fixture(scope="session")
+def api_client(base_url, timeout):
+    """Provide API client instance."""
+    return APIClient(base_url=base_url, timeout=timeout)
 

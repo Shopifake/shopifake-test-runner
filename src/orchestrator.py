@@ -124,8 +124,79 @@ class TestOrchestrator:
 
     def _run_load_tests(self) -> bool:
         """Run load tests (staging only)."""
-        print("TODO: Implement load tests with Locust")
-        return True
+        import os
+        import sys
+        from pathlib import Path
+        
+        # Set Locust parameters from config
+        os.environ["LOCUST_HOST"] = self.config.base_url
+        
+        # Default values for load tests
+        users = int(os.getenv("LOCUST_USERS", "10"))
+        spawn_rate = int(os.getenv("LOCUST_SPAWN_RATE", "2"))
+        run_time = os.getenv("LOCUST_RUN_TIME", "60s")
+        
+        # Ensure reports directory exists
+        reports_dir = Path("reports")
+        reports_dir.mkdir(exist_ok=True)
+        
+        # Locustfile path
+        repo_root = Path(__file__).resolve().parents[2]
+        locustfile = repo_root / "src" / "tests" / "load" / "locustfile.py"
+        
+        if not locustfile.exists():
+            print(f"❌ Locustfile not found: {locustfile}")
+            return False
+        
+        # Prepare Locust arguments
+        locust_args = [
+            "--locustfile", str(locustfile),
+            "--host", self.config.base_url,
+            "--users", str(users),
+            "--spawn-rate", str(spawn_rate),
+            "--run-time", run_time,
+            "--headless",  # Run without web UI
+            "--html", str(reports_dir / "load.html"),
+            "--csv", str(reports_dir / "load"),  # CSV stats
+        ]
+        
+        if self.config.verbose:
+            locust_args.append("--loglevel")
+            locust_args.append("DEBUG")
+        
+        print(f"Running Locust with args: {' '.join(locust_args)}")
+        print(f"Base URL: {self.config.base_url}")
+        print(f"Users: {users}, Spawn rate: {spawn_rate}/s, Run time: {run_time}")
+        
+        # Run Locust programmatically
+        try:
+            from locust.main import main as locust_main
+            
+            # Save original sys.argv
+            original_argv = sys.argv.copy()
+            
+            # Set sys.argv for Locust
+            sys.argv = ["locust"] + locust_args
+            
+            # Run Locust
+            exit_code = locust_main()
+            
+            # Restore original sys.argv
+            sys.argv = original_argv
+            
+            if exit_code != 0:
+                print(f"❌ Locust exited with code {exit_code}")
+                return False
+            else:
+                print(f"✅ Locust load tests passed")
+                print(f"📊 Report saved to: {reports_dir / 'load.html'}")
+                return True
+                
+        except Exception as e:
+            print(f"❌ Failed to run Locust: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
     def _run_chaos_tests(self) -> bool:
         """Run chaos tests (staging only)."""
