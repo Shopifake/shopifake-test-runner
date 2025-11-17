@@ -16,7 +16,7 @@ def pytest_addoption(parser):
         help="Base URL for the API Gateway",
     )
     parser.addoption(
-        "--timeout",
+        "--http-timeout",
         action="store",
         type=int,
         default=60,
@@ -33,7 +33,7 @@ def base_url(request):
 @pytest.fixture(scope="session")
 def timeout(request):
     """Provide default timeout for HTTP requests."""
-    return request.config.getoption("--timeout")
+    return request.config.getoption("--http-timeout")
 
 
 @pytest.fixture(scope="session")
