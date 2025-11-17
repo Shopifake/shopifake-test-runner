@@ -98,16 +98,28 @@ class TestOrchestrator:
 
     def _run_system_tests(self) -> bool:
         """Run pytest system tests."""
+        import sys
+        
         args = [
             "src/tests/system",
             f"--base-url={self.config.base_url}",
             "--html=reports/system.html",
             "--self-contained-html",
             "-v" if self.config.verbose else "",
+            "-s",  # Don't capture output
         ]
         args = [arg for arg in args if arg]  # Remove empty strings
 
+        print(f"Running pytest with args: {args}")
+        print(f"Base URL: {self.config.base_url}")
+        
         exit_code = pytest.main(args)
+        
+        if exit_code != 0:
+            print(f"❌ Pytest exited with code {exit_code}")
+        else:
+            print(f"✅ Pytest passed")
+            
         return exit_code == 0
 
     def _run_load_tests(self) -> bool:
