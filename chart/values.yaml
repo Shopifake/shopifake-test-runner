@@ -1,0 +1,42 @@
+# Default values for shopifake-test-runner
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: ghcr.io/shopifake/shopifake-test-runner
+  pullPolicy: IfNotPresent
+  tag: ""
+
+job:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  restartPolicy: Never
+
+serviceAccount:
+  create: true
+  name: ""
+
+# Environment variables - MUST be provided by CI/CD or manual deployment
+# Required:
+#   BASE_URL: Gateway URL for tests (e.g., http://shopifake-gateway:8080)
+#   TIMEOUT: Test timeout in seconds (e.g., '300')
+# Optional:
+#   GITHUB_TOKEN: For posting results to GitHub
+#   GITHUB_SHA: Commit SHA for result tracking
+env: []
+
+args:
+  - "--mode"
+  - "staging"
+  - "--suite"
+  - "system"
+  - "--verbose"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
