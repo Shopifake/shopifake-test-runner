@@ -231,7 +231,7 @@ class TestOrchestrator:
         
         args = [
             "src/tests/chaos",
-            "-m", "chaos",  # Run tests with @pytest.mark.chaos
+            "-m", "chaos and not slow",  # Run chaos tests but skip slow combined tests
             f"--base-url={self.config.base_url}",
             "--html=reports/chaos.html",
             "--self-contained-html",
