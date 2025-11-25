@@ -55,12 +55,12 @@ class HealthCheckScenario:
                 # Try to parse JSON response if available
                 try:
                     data = response.json()
-                    # Check if status is UP for actuator endpoints
+                    # Check if status is UP or healthy (Python services use "healthy")
                     if isinstance(data, dict) and "status" in data:
-                        if data["status"] == "UP":
+                        if data["status"] in ["UP", "healthy"]:
                             response.success()
                         else:
-                            response.failure(f"Status not UP: {data.get('status')}")
+                            response.failure(f"Status not UP/healthy: {data.get('status')}")
                     else:
                         response.success()
                 except Exception:
