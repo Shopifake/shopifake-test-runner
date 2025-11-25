@@ -14,6 +14,10 @@ spec:
     spec:
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
       restartPolicy: {{ .Values.job.restartPolicy }}
+      securityContext:
+        sysctls:
+        - name: fs.file-max
+          value: "65536"
       containers:
         - name: test-runner
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -22,6 +26,10 @@ spec:
             {{- toYaml .Values.args | nindent 12 }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
+          securityContext:
+            capabilities:
+              add:
+              - SYS_RESOURCE
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 

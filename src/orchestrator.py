@@ -152,9 +152,8 @@ class TestOrchestrator:
         reports_dir = Path("reports")
         reports_dir.mkdir(exist_ok=True)
         
-        # Locustfile path
-        repo_root = Path(__file__).resolve().parents[2]
-        locustfile = repo_root / "src" / "tests" / "load" / "locustfile.py"
+        # Locustfile path - use absolute path from working directory
+        locustfile = Path("/app/src/tests/load/locustfile.py")
         
         if not locustfile.exists():
             print(f"❌ Locustfile not found: {locustfile}")
