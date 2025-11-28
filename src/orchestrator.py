@@ -264,11 +264,14 @@ class TestOrchestrator:
                 print("✅ Kubeconfig loaded successfully")
             
             api = client.CoreV1Api()
-            namespaces = api.list_namespace(limit=1)
-            print(f"✅ Kubernetes API is accessible")
+            # Test connectivity by listing pods in our namespace (doesn't require cluster-wide permissions)
+            pods = api.list_namespaced_pod(namespace=namespace, limit=1)
+            print(f"✅ Kubernetes API is accessible (found {len(pods.items)} pod(s) in namespace)")
         except Exception as e:
             print(f"❌ Cannot connect to Kubernetes API: {e}")
             print("⚠️  Chaos tests cannot run without K8s access")
+            import traceback
+            traceback.print_exc()
             return False
         
         print("\n" + "=" * 70)
