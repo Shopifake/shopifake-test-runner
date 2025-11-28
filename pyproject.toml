@@ -2,17 +2,17 @@
 name = "shopifake-test-runner"
 version = "1.0.0"
 description = "Test orchestrator for Shopifake microservices - System, Load, and Chaos tests"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = []
 
 [tool.black]
 line-length = 100
-target-version = ['py312']
+target-version = ['py311']
 include = '\.pyi?$'
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py311"
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
