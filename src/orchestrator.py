@@ -215,15 +215,58 @@ class TestOrchestrator:
         import sys
         from pathlib import Path
         
+        print("\n" + "=" * 70)
+        print("🔥 CHAOS TESTING - Pre-flight checks")
+        print("=" * 70)
+        
         # Verify Kubernetes config is available
         kubeconfig = os.getenv("KUBECONFIG")
-        if not kubeconfig:
-            print("⚠️  KUBECONFIG not set, checking for in-cluster config...")
-            # In-cluster config will be tried automatically by kubernetes client
+        if kubeconfig:
+            print(f"✅ KUBECONFIG: {kubeconfig}")
+        else:
+            print("⚠️  KUBECONFIG not set - will try in-cluster config")
         
         # Verify namespace is set
         namespace = os.getenv("K8S_NAMESPACE", "staging")
-        print(f"Using Kubernetes namespace: {namespace}")
+        print(f"✅ K8S_NAMESPACE: {namespace}")
+        
+        # Check if ServiceAccount token exists (in-cluster)
+        sa_token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        if os.path.exists(sa_token_path):
+            print(f"✅ ServiceAccount token found (in-cluster mode)")
+        else:
+            print(f"⚠️  No ServiceAccount token - using kubeconfig")
+        
+        # Verify we can import kubernetes library
+        try:
+            from kubernetes import client, config as k8s_config
+            print("✅ Kubernetes Python client library available")
+        except ImportError as e:
+            print(f"❌ Cannot import kubernetes library: {e}")
+            print("⚠️  Skipping chaos tests - kubernetes library not available")
+            return False
+        
+        # Try to connect to K8s API
+        print("\n🔧 Testing Kubernetes API connectivity...")
+        try:
+            try:
+                k8s_config.load_incluster_config()
+                print("✅ In-cluster config loaded successfully")
+            except k8s_config.ConfigException:
+                k8s_config.load_kube_config()
+                print("✅ Kubeconfig loaded successfully")
+            
+            api = client.CoreV1Api()
+            namespaces = api.list_namespace(limit=1)
+            print(f"✅ Kubernetes API is accessible")
+        except Exception as e:
+            print(f"❌ Cannot connect to Kubernetes API: {e}")
+            print("⚠️  Chaos tests cannot run without K8s access")
+            return False
+        
+        print("\n" + "=" * 70)
+        print("🔥 Starting Chaos Tests")
+        print("=" * 70 + "\n")
         
         # Ensure reports directory exists
         reports_dir = Path("reports")
@@ -240,18 +283,21 @@ class TestOrchestrator:
         ]
         args = [arg for arg in args if arg]  # Remove empty strings
         
-        print(f"Running pytest chaos tests with args: {args}")
+        print(f"pytest args: {args}")
         print(f"Base URL: {self.config.base_url}")
-        print(f"Namespace: {namespace}")
+        print(f"Namespace: {namespace}\n")
         
         exit_code = pytest.main(args)
         
+        print("\n" + "=" * 70)
         if exit_code != 0:
-            print(f"❌ Chaos tests failed with code {exit_code}")
+            print(f"❌ Chaos tests failed with exit code: {exit_code}")
+            print("=" * 70)
             return False
         else:
-            print(f"✅ Chaos tests passed")
+            print(f"✅ Chaos tests passed!")
             print(f"📊 Report saved to: {reports_dir / 'chaos.html'}")
+            print("=" * 70)
             return True
 
     def _handle_pr_results(self, report: TestReport):

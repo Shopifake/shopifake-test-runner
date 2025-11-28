@@ -15,7 +15,8 @@ def test_network_latency(
     namespace,
     chaos_mesh_group,
     chaos_mesh_version,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test that services handle increased network latency gracefully.
@@ -85,7 +86,8 @@ def test_network_partition(
     namespace,
     chaos_mesh_group,
     chaos_mesh_version,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test service behavior during network partition.
@@ -161,7 +163,8 @@ def test_packet_loss(
     namespace,
     chaos_mesh_group,
     chaos_mesh_version,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test service resilience to packet loss.

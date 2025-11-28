@@ -15,7 +15,8 @@ def test_cpu_stress(
     namespace,
     chaos_mesh_group,
     chaos_mesh_version,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test service resilience under CPU stress.
@@ -94,7 +95,8 @@ def test_memory_stress(
     namespace,
     chaos_mesh_group,
     chaos_mesh_version,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test service resilience under memory stress.
@@ -169,7 +171,8 @@ def test_combined_cpu_memory_stress(
     namespace,
     chaos_mesh_group,
     chaos_mesh_version,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test service under combined CPU and memory stress.

@@ -57,7 +57,8 @@ def test_load_with_pod_failures(
     chaos_mesh_group,
     chaos_mesh_version,
     base_url,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test system behavior under load while killing pods.
@@ -171,7 +172,8 @@ def test_load_with_network_latency(
     chaos_mesh_group,
     chaos_mesh_version,
     base_url,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test system behavior under load with increased network latency.

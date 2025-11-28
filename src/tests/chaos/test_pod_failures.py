@@ -29,7 +29,8 @@ def test_pod_deletion_recovery(
     namespace,
     chaos_mesh_group,
     chaos_mesh_version,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test that a service recovers after a pod is killed.
@@ -128,7 +129,8 @@ def test_multiple_pod_failures(
     namespace,
     chaos_mesh_group,
     chaos_mesh_version,
-    api_client
+    api_client,
+    verify_chaos_mesh
 ):
     """
     Test that a service recovers when multiple pods are killed simultaneously.
