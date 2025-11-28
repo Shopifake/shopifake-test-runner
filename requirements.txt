@@ -28,7 +28,9 @@ pyyaml>=6.0
 locust>=2.20.0
 
 # Chaos engineering (staging only)
-kubernetes>=28.1.0
+kubernetes>=30.1.0
+# Pin urllib3 < 2.0 to avoid SSL recursion bug with older kubernetes-python versions
+urllib3<2.0,>=1.26.0
 
 # Code quality
 ruff>=0.8.0
