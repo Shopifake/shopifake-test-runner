@@ -189,11 +189,15 @@ class TestOrchestrator:
             # Set sys.argv for Locust
             sys.argv = ["locust"] + locust_args
             
-            # Run Locust
-            exit_code = locust_main()
-            
-            # Restore original sys.argv
-            sys.argv = original_argv
+            # Run Locust and catch its sys.exit()
+            try:
+                exit_code = locust_main()
+            except SystemExit as e:
+                # Locust calls sys.exit(), capture the exit code
+                exit_code = e.code if e.code is not None else 0
+            finally:
+                # Always restore original sys.argv
+                sys.argv = original_argv
             
             if exit_code != 0:
                 print(f"❌ Locust exited with code {exit_code}")
@@ -203,6 +207,9 @@ class TestOrchestrator:
                 print(f"📊 Report saved to: {reports_dir / 'load.html'}")
                 return True
                 
+        except ImportError as e:
+            print(f"❌ Failed to import Locust: {e}")
+            return False
         except Exception as e:
             print(f"❌ Failed to run Locust: {e}")
             import traceback
