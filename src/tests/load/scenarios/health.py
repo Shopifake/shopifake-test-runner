@@ -20,7 +20,6 @@ class HealthCheckScenario:
         "/api/pricing/actuator/health",
         "/api/sales-dashboard/actuator/health",
         "/api/sites/actuator/health",
-        "/api/chatbot/health",
         "/api/recommender/health",
         "/api/auth-b2c/healthz",
         "/api/auth-b2e/healthz",

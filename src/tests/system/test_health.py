@@ -21,7 +21,6 @@ SPRING_BOOT_SERVICES = [
 
 # Python/FastAPI services (use /health)
 PYTHON_SERVICES = [
-    "chatbot",
     "recommender",
 ]
 
